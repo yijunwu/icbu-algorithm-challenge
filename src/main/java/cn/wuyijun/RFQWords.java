@@ -26,29 +26,27 @@ public class RFQWords implements IRFQAnalyse {
     public void doJob(String rfqFilePath, String dicFilePath, String resultCSVFilePath) {
         try {
             //构建词典hash map
-            byte[] dictBytes = Files.readAllBytes(Paths.get(dicFilePath));
-            String dictContent = new String(dictBytes);
+            String dictContent = new String(Files.readAllBytes(Paths.get(dicFilePath)));
             Set<String> phrases = Arrays.stream(PATTERN_COMMA.split(dictContent)).parallel()
-                    .map(s -> s.trim())
-                    .filter(a -> a.length() > 0)
+                    .map(String::trim)
+                    .filter(a -> !a.isEmpty())
                     .collect(Collectors.toCollection(HashSet::new));
 
             //统计词典中词组最多包含几个单词
-            Integer maxWordLen = phrases.parallelStream().map(s -> PATTERN_SPACE.split(s).length)
+            int maxWordLen = phrases.parallelStream().map(s -> PATTERN_SPACE.split(s).length)
                     .reduce(Integer::max).get();
             System.gc();
 
             //读取RFQ文件，分割成句子
-            byte[] rfqBytes = Files.readAllBytes(Paths.get(rfqFilePath));
-            String rfqContent = new String(rfqBytes);
+            String rfqContent = new String(Files.readAllBytes(Paths.get(rfqFilePath)));
             String[] sentences = PATTERN_DELIMITER.split(rfqContent);
 
             //对RFQ文件中的每个句子，统计词典中词组出现的次数
             Map<String, AtomicInteger> resultMap = new ConcurrentHashMap<>();
             Arrays.stream(sentences).parallel()
                     .map(s -> s.trim().toLowerCase())
-                    .filter(s -> s.length() > 0)
-                    .map(sentence -> Arrays.stream(PATTERN_SPACE.split(sentence)).filter(s -> s.length() > 0)
+                    .filter(s -> !s.isEmpty())
+                    .map(sentence -> Arrays.stream(PATTERN_SPACE.split(sentence)).filter(s -> !s.isEmpty())
                             .collect(Collectors.toList()))
                     .forEach(sentence -> IntStream.range(0, sentence.size()).forEach(i -> {
                         StringBuilder builder = new StringBuilder();
@@ -58,18 +56,17 @@ public class RFQWords implements IRFQAnalyse {
                             builder.append(" ");
 
                             if (phrases.contains(string)) {
-                                AtomicInteger value = resultMap.computeIfAbsent(string, key -> new AtomicInteger(0));
-                                value.incrementAndGet();
+                                resultMap.computeIfAbsent(string, key -> new AtomicInteger(0)).incrementAndGet();
                             }
                         }
                     }));
 
             //写结果
             StringBuilder resultBuilder = new StringBuilder();
-            resultMap.entrySet().forEach(e -> {
-                resultBuilder.append(e.getKey()).append(",").append(e.getValue()).append(System.lineSeparator());
-            });
-            Files.write(Paths.get(resultCSVFilePath), resultBuilder.toString().getBytes());
+            resultMap.forEach((key, value) ->
+                    resultBuilder.append(key).append(",").append(value).append(System.lineSeparator())
+            );
+            Files.writeString(Paths.get(resultCSVFilePath), resultBuilder.toString());
         } catch (Exception e) {
             throw new RuntimeException("Exception encountered: " + e.getMessage(), e);
         }
