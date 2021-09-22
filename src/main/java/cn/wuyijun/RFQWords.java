@@ -58,20 +58,17 @@ public class RFQWords implements IRFQAnalyse {
             if (false) {
                 sentences = Arrays.asList(PATTERN_DELIMITER.split(rfqContent));
             } else {
-                StringTokenizer tokenizer = new StringTokenizer(rfqContent, ",");
-                sentences = new ArrayList<>();
-                while (tokenizer.hasMoreTokens()) {
-                    sentences.add(tokenizer.nextToken());
-                }
+                sentences = Collections.list(new StringTokenizer(rfqContent, ","))
+                        .stream().map(s -> (String)s).collect(toList());
             }
             System.out.println("Now: " + System.currentTimeMillis());
             //对RFQ文件中的每个句子，统计词典中词组出现的次数
             Map<String, AtomicInteger> resultMap = new ConcurrentHashMap<>();
             sentences.parallelStream()
                     .map(s -> s.trim().toLowerCase())
-                    .filter(s -> !s.isEmpty())
-                    .map(sentence -> Arrays.stream(PATTERN_SPACE.split(sentence)).filter(s -> !s.isEmpty())
-                            .collect(Collectors.toList()))
+//                    .filter(s -> !s.isEmpty())
+                    .map(sentence -> Collections.list(new StringTokenizer(sentence, " "))
+                            .stream().map(s -> (String)s).collect(toList()))
                     .forEach(sentence -> IntStream.range(0, sentence.size()).forEach(i -> {
                         StringBuilder builder = new StringBuilder();
                         for (int j = 0; j < maxWordLen && i + j < sentence.size(); j++) {
