@@ -6,71 +6,39 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toCollection;
 
 /**
  * 算法思想：用最简单直接的方法实现（步骤见代码），确保正确性，易于理解。
  * 使用Stream API和函数式编程增强代码可读性，使用parallel stream进行多线程并行处理，代码简单。
  */
 public class RFQWords implements IRFQAnalyse {
-    public static Pattern PATTERN_COMMA = Pattern.compile(",");
-    public static Pattern PATTERN_SPACE = Pattern.compile(" ");
-    public static Pattern PATTERN_DELIMITER = Pattern.compile("[^a-zA-Z0-9 ]");
-    public static StringTokenizer TOKENIZER = new StringTokenizer(",");
 
     @Override
     public void doJob(String rfqFilePath, String dicFilePath, String resultCSVFilePath) {
         try {
             //构建词典hash map
             String dictContent = new String(Files.readAllBytes(Paths.get(dicFilePath)));
-            Set<String> phrases;
+            Set<String> phrases = Collections.list(new StringTokenizer(dictContent, ",")).parallelStream()
+                    .map(s -> ((String)s).trim())
+                    .collect(toCollection(ConcurrentHashMap::newKeySet));
 
-            boolean newApproach = false;
-            if (newApproach) {
-                phrases = new HashSet<>(40811, 0.8F);
-                StringTokenizer dictTokenizer = new StringTokenizer(dictContent, ",");
-                while (dictTokenizer.hasMoreTokens()) {
-                    phrases.add(dictTokenizer.nextToken());
-                }
-            } else {
-                phrases = Arrays.stream(PATTERN_COMMA.split(dictContent)).parallel()
-                        .map(String::trim)
-                        .filter(a -> !a.isEmpty())
-                        .collect(Collectors.toCollection(ConcurrentHashMap::newKeySet));
-            }
-            System.out.println("Now: " + System.currentTimeMillis());
             //统计词典中词组最多包含几个单词
-            int maxWordLen;
-            if (newApproach) {
-                maxWordLen = phrases.stream().map(s -> new StringTokenizer(s, " ").countTokens())
+            int maxWordLen = phrases.parallelStream().map(s -> new StringTokenizer(s, " ").countTokens())
                         .reduce(Integer::max).get();
-            } else {
-                maxWordLen = phrases.parallelStream().map(s -> PATTERN_SPACE.split(s).length)
-                        .reduce(Integer::max).get();
-            }
-            //System.gc();
-            System.out.println("Now: " + System.currentTimeMillis());
+
             //读取RFQ文件，分割成句子
             String rfqContent = new String(Files.readAllBytes(Paths.get(rfqFilePath)));
-            List<String> sentences;
-            if (false) {
-                sentences = Arrays.asList(PATTERN_DELIMITER.split(rfqContent));
-            } else {
-                sentences = Collections.list(new StringTokenizer(rfqContent, ","))
-                        .stream().map(s -> (String)s).collect(toList());
-            }
-            System.out.println("Now: " + System.currentTimeMillis());
+            List<Object> sentences = Collections.list(new StringTokenizer(rfqContent, ","));
+
             //对RFQ文件中的每个句子，统计词典中词组出现的次数
             Map<String, AtomicInteger> resultMap = new ConcurrentHashMap<>();
             sentences.parallelStream()
-                    .map(s -> s.trim().toLowerCase())
-//                    .filter(s -> !s.isEmpty())
-                    .map(sentence -> Collections.list(new StringTokenizer(sentence, " "))
-                            .stream().map(s -> (String)s).collect(toList()))
+                    .map(s -> ((String)s).trim().toLowerCase())
+                    .map(sentence -> Collections.list(new StringTokenizer(sentence, " ")))
                     .forEach(sentence -> IntStream.range(0, sentence.size()).forEach(i -> {
                         StringBuilder builder = new StringBuilder();
                         for (int j = 0; j < maxWordLen && i + j < sentence.size(); j++) {
@@ -83,14 +51,12 @@ public class RFQWords implements IRFQAnalyse {
                             }
                         }
                     }));
-            System.out.println("Now: " + System.currentTimeMillis());
+
             //写结果
-            StringBuilder resultBuilder = new StringBuilder();
-            resultMap.forEach((key, value) ->
-                    resultBuilder.append(key).append(",").append(value).append(System.lineSeparator())
-            );
-            Files.writeString(Paths.get(resultCSVFilePath), resultBuilder.toString());
-            System.out.println("Now: " + System.currentTimeMillis());
+            String resultStr = resultMap.entrySet().parallelStream()
+                    .map(e -> e.getKey() + "," + e.getValue())
+                    .collect(Collectors.joining(System.lineSeparator()));
+            Files.writeString(Paths.get(resultCSVFilePath), resultStr);
         } catch (Exception e) {
             throw new RuntimeException("Exception encountered: " + e.getMessage(), e);
         }
@@ -102,9 +68,8 @@ public class RFQWords implements IRFQAnalyse {
         String rfqFilePath = "D:\\Work\\RFQInput_100M.txt";
         String outputFilePath = "D:\\Work\\RFQOutput.txt";
 
-        long now = System.currentTimeMillis();
-        System.out.println("Now: " + System.currentTimeMillis());
+        long start = System.currentTimeMillis();
         rfqAnalyse.doJob(rfqFilePath, dicFilePath, outputFilePath);
-        System.out.println("Time elapsed: " + (System.currentTimeMillis() - now));
+        System.out.println("Time elapsed: " + (System.currentTimeMillis() - start));
     }
 }
