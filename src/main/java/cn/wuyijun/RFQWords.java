@@ -25,32 +25,44 @@ public class RFQWords implements IRFQAnalyse {
         try {
             //构建词典hash map
             String dictContent = new String(Files.readAllBytes(Paths.get(dicFilePath)));
-//            Set<String> phrases = new HashSet<>(40811, 0.8F);
-//            StringTokenizer dictTokenizer = new StringTokenizer(dictContent, ",");
-//            while (dictTokenizer.hasMoreTokens()) {
-//                phrases.add(dictTokenizer.nextToken());
-//            }
+            Set<String> phrases;
 
-            Set<String> phrases = Arrays.stream(PATTERN_COMMA.split(dictContent)).parallel()
-                    .map(String::trim)
-                    .filter(a -> !a.isEmpty())
-                    .collect(Collectors.toCollection(ConcurrentHashMap::newKeySet));
+            boolean newApproach = false;
+            if (newApproach) {
+                phrases = new HashSet<>(40811, 0.8F);
+                StringTokenizer dictTokenizer = new StringTokenizer(dictContent, ",");
+                while (dictTokenizer.hasMoreTokens()) {
+                    phrases.add(dictTokenizer.nextToken());
+                }
+            } else {
+                phrases = Arrays.stream(PATTERN_COMMA.split(dictContent)).parallel()
+                        .map(String::trim)
+                        .filter(a -> !a.isEmpty())
+                        .collect(Collectors.toCollection(ConcurrentHashMap::newKeySet));
+            }
             System.out.println("Now: " + System.currentTimeMillis());
             //统计词典中词组最多包含几个单词
-            int maxWordLen = phrases.parallelStream().map(s -> PATTERN_SPACE.split(s).length)
-                    .reduce(Integer::max).get();
-//            int maxWordLen = phrases.stream().map(s -> new StringTokenizer(s, " ").countTokens())
-//                    .reduce(Integer::max).get();
+            int maxWordLen;
+            if (newApproach) {
+                maxWordLen = phrases.stream().map(s -> new StringTokenizer(s, " ").countTokens())
+                        .reduce(Integer::max).get();
+            } else {
+                maxWordLen = phrases.parallelStream().map(s -> PATTERN_SPACE.split(s).length)
+                        .reduce(Integer::max).get();
+            }
             //System.gc();
             System.out.println("Now: " + System.currentTimeMillis());
             //读取RFQ文件，分割成句子
             String rfqContent = new String(Files.readAllBytes(Paths.get(rfqFilePath)));
-            //String[] sentences = PATTERN_DELIMITER.split(rfqContent);
-
-            StringTokenizer tokenizer = new StringTokenizer(rfqContent, ",");
-            List<String> sentences = new ArrayList<>();
-            while (tokenizer.hasMoreTokens()) {
-                sentences.add(tokenizer.nextToken());
+            List<String> sentences;
+            if (false) {
+                sentences = Arrays.asList(PATTERN_DELIMITER.split(rfqContent));
+            } else {
+                StringTokenizer tokenizer = new StringTokenizer(rfqContent, ",");
+                sentences = new ArrayList<>();
+                while (tokenizer.hasMoreTokens()) {
+                    sentences.add(tokenizer.nextToken());
+                }
             }
             System.out.println("Now: " + System.currentTimeMillis());
             //对RFQ文件中的每个句子，统计词典中词组出现的次数
