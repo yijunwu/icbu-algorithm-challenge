@@ -6,9 +6,9 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 
 /**
@@ -18,48 +18,46 @@ import static java.util.stream.Collectors.toCollection;
 public class RFQWords implements IRFQAnalyse {
 
     @Override
-    public void doJob(String rfqFilePath, String dicFilePath, String resultCSVFilePath) {
-        try {
-            //构建词典hash map
-            String dictContent = new String(Files.readAllBytes(Paths.get(dicFilePath)));
-            Set<String> phrases = Collections.list(new StringTokenizer(dictContent, ",")).parallelStream()
-                    .map(s -> ((String)s).trim())
-                    .collect(toCollection(ConcurrentHashMap::newKeySet));
+    public void doJob(String rfqFilePath, String dicFilePath, String resultCSVFilePath) throws IOException {
+        //构建词典hash map
+        String dictContent = new String(Files.readAllBytes(Paths.get(dicFilePath)));
+        Set<String> phrases = Collections.list(new StringTokenizer(dictContent, ","))
+                .parallelStream()
+                .map(s -> ((String)s).trim())
+                .collect(toCollection(ConcurrentHashMap::newKeySet));
 
-            //统计词典中词组最多包含几个单词
-            int maxWordLen = phrases.parallelStream().map(s -> new StringTokenizer(s, " ").countTokens())
-                        .reduce(Integer::max).get();
+        //统计词典中词组最多包含几个单词
+        int maxWordsLen = phrases.parallelStream()
+                .map(s -> new StringTokenizer(s, " ").countTokens())
+                .reduce(Integer::max).orElse(0);
 
-            //读取RFQ文件，分割成句子
-            String rfqContent = new String(Files.readAllBytes(Paths.get(rfqFilePath)));
-            List<Object> sentences = Collections.list(new StringTokenizer(rfqContent, ","));
+        //读取RFQ文件，分割成句子
+        String rfqContent = new String(Files.readAllBytes(Paths.get(rfqFilePath)));
+        List<Object> sentences = Collections.list(new StringTokenizer(rfqContent, ","));
 
-            //对RFQ文件中的每个句子，统计词典中词组出现的次数
-            Map<String, AtomicInteger> resultMap = new ConcurrentHashMap<>();
-            sentences.parallelStream()
-                    .map(s -> ((String)s).trim().toLowerCase())
-                    .map(sentence -> Collections.list(new StringTokenizer(sentence, " ")))
-                    .forEach(sentence -> IntStream.range(0, sentence.size()).forEach(i -> {
-                        StringBuilder builder = new StringBuilder();
-                        for (int j = 0; j < maxWordLen && i + j < sentence.size(); j++) {
-                            builder.append(sentence.get(i + j));
-                            String string = builder.toString();
-                            builder.append(" ");
+        //对RFQ文件中的每个句子，统计词典中词组出现的次数
+        Map<String, AtomicInteger> resultMap = new ConcurrentHashMap<>();
+        sentences.parallelStream()
+                .map(s -> ((String)s).trim().toLowerCase())
+                .map(sentence -> Collections.list(new StringTokenizer(sentence, " ")))
+                .forEach(words -> IntStream.range(0, words.size()).forEach(start -> {
+                    StringBuilder builder = new StringBuilder();
+                    for (int pos = 0; pos < maxWordsLen && start + pos < words.size(); pos ++) {
+                        builder.append(words.get(start + pos));
+                        String part = builder.toString();
+                        builder.append(" ");
 
-                            if (phrases.contains(string)) {
-                                resultMap.computeIfAbsent(string, key -> new AtomicInteger(0)).incrementAndGet();
-                            }
+                        if (phrases.contains(part)) {
+                            resultMap.computeIfAbsent(part, key -> new AtomicInteger(0)).incrementAndGet();
                         }
-                    }));
+                    }
+                }));
 
-            //写结果
-            String resultStr = resultMap.entrySet().parallelStream()
-                    .map(e -> e.getKey() + "," + e.getValue())
-                    .collect(Collectors.joining(System.lineSeparator()));
-            Files.writeString(Paths.get(resultCSVFilePath), resultStr);
-        } catch (Exception e) {
-            throw new RuntimeException("Exception encountered: " + e.getMessage(), e);
-        }
+        //写结果
+        String resultStr = resultMap.entrySet().parallelStream()
+                .map(e -> e.getKey() + "," + e.getValue())
+                .collect(joining(System.lineSeparator()));
+        Files.writeString(Paths.get(resultCSVFilePath), resultStr);
     }
 
     public static void main(String[] args) throws IOException {
