@@ -26,7 +26,7 @@ public class RFQWords implements IRFQAnalyse {
         new Thread(() -> {
             try { String rfqContent = Files.readString(Paths.get(rfqFilePath));
                 sentences.set(Collections.list(new StringTokenizer(rfqContent, ",")));
-            } catch (Exception e) { sentences.set(emptyList()); }
+            } catch (IOException e) { sentences.set(emptyList()); }
         }).start();
 
         //构建词典hash map
