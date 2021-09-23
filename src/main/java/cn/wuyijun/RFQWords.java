@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 
@@ -25,35 +26,28 @@ public class RFQWords implements IRFQAnalyse {
 
     @Override
     public void doJob(String rfqFilePath, String dicFilePath, String resultCSVFilePath) throws IOException {
-        long startTime = System.currentTimeMillis();
         //读取RFQ文件，分割成句子
         AtomicReference<List<Object>> sentences = new AtomicReference<>(null);
         new Thread(() -> {
             try { String rfqContent = Files.readString(Paths.get(rfqFilePath));
                 sentences.set(Collections.list(new StringTokenizer(rfqContent, ",")));
-            } catch (Exception e) { throw new RuntimeException(e); }
+            } catch (Exception e) { sentences.set(emptyList()); }
         }).start();
-        System.out.println("Time elapsed 1 " + (System.currentTimeMillis() - startTime));
 
         //构建词典hash map
         String dictContent = Files.readString(Paths.get(dicFilePath));
-        System.out.println("Time elapsed 2 " + (System.currentTimeMillis() - startTime));
         Set<String> phrases = Collections.list(new StringTokenizer(dictContent, ","))
-                .stream()
-                .map(s -> ((String)s).trim())
+                .stream().map(s -> ((String)s).trim())
                 .collect(toCollection(() -> new HashSet<>(523_001)));
-        System.out.println("Time elapsed 3 " + (System.currentTimeMillis() - startTime));
 
         //统计词典中词组最多包含几个单词
         int maxWordsLen = phrases.parallelStream()
                 .map(s -> new StringTokenizer(s, " ").countTokens())
                 .reduce(Integer::max).orElse(0);
-        System.out.println("Time elapsed 4 " + (System.currentTimeMillis() - startTime));
 
         //对RFQ文件中的每个句子，统计词典中词组出现的次数
         Map<String, AtomicInteger> resultMap = new ConcurrentHashMap<>();
         while (sentences.get() == null) { Thread.yield(); }
-        System.out.println("Time elapsed 5 " + (System.currentTimeMillis() - startTime));
 
         sentences.get().parallelStream()
                 .map(s -> ((String)s).trim().toLowerCase())
@@ -70,15 +64,13 @@ public class RFQWords implements IRFQAnalyse {
                         }
                     }
                 }));
-        System.out.println("Time elapsed 6 " + (System.currentTimeMillis() - startTime));
+
         //写结果
         String resultStr = resultMap.entrySet().stream()
                 .map(e -> e.getKey() + "," + e.getValue())
                 .collect(joining(System.lineSeparator()));
-        System.out.println("Time elapsed 7 " + (System.currentTimeMillis() - startTime));
 
         Files.writeString(Paths.get(resultCSVFilePath), resultStr);
-        System.out.println("Time elapsed 8 " + (System.currentTimeMillis() - startTime));
     }
 
     public static void main(String[] args) throws IOException {
