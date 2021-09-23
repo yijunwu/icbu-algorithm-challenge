@@ -1,10 +1,6 @@
 package cn.wuyijun;
 
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -12,7 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.joining;
@@ -69,7 +64,6 @@ public class RFQWords implements IRFQAnalyse {
         String resultStr = resultMap.entrySet().stream()
                 .map(e -> e.getKey() + "," + e.getValue())
                 .collect(joining(System.lineSeparator()));
-
         Files.writeString(Paths.get(resultCSVFilePath), resultStr);
     }
 
