@@ -72,27 +72,12 @@ public class RFQWords implements IRFQAnalyse {
                 }));
         System.out.println("Time elapsed 6 " + (System.currentTimeMillis() - startTime));
         //写结果
-        ArrayList<Map.Entry<String, AtomicInteger>> entries = new ArrayList<>(resultMap.entrySet());
-        Stream<CharSequence> stream = IntStream.range(0, entries.size() * 4).mapToObj(i -> {
-            switch (i % 4) {
-                case 0:
-                    return entries.get(i / 4).getKey();
-                case 1:
-                    return ",";
-                case 2:
-                    return entries.get(i / 4).getValue().toString();
-                case 3:
-                    return System.lineSeparator();
-                default:
-                    return "";
-            }
-        });
-//        String resultStr = resultMap.entrySet().stream()
-//                .map(e -> new StringBuilder(e.getKey()).append(",").append(e.getValue()).append(System.lineSeparator()))
-//                .collect(joining());
+        String resultStr = resultMap.entrySet().stream()
+                .map(e -> e.getKey() + "," + e.getValue())
+                .collect(joining(System.lineSeparator()));
         System.out.println("Time elapsed 7 " + (System.currentTimeMillis() - startTime));
 
-        Files.write(Paths.get(resultCSVFilePath), stream::iterator);
+        Files.writeString(Paths.get(resultCSVFilePath), resultStr);
         System.out.println("Time elapsed 8 " + (System.currentTimeMillis() - startTime));
     }
 
