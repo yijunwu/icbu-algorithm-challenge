@@ -1,12 +1,18 @@
 package cn.wuyijun;
 
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
@@ -19,25 +25,37 @@ public class RFQWords implements IRFQAnalyse {
 
     @Override
     public void doJob(String rfqFilePath, String dicFilePath, String resultCSVFilePath) throws IOException {
+        long startTime = System.currentTimeMillis();
+        //读取RFQ文件，分割成句子
+        AtomicReference<List<Object>> sentences = new AtomicReference<>(null);
+        new Thread(() -> {
+            try { String rfqContent = Files.readString(Paths.get(rfqFilePath));
+                sentences.set(Collections.list(new StringTokenizer(rfqContent, ",")));
+            } catch (Exception e) { throw new RuntimeException(e); }
+        }).start();
+        System.out.println("Time elapsed 1 " + (System.currentTimeMillis() - startTime));
+
         //构建词典hash map
-        String dictContent = new String(Files.readAllBytes(Paths.get(dicFilePath)));
+        String dictContent = Files.readString(Paths.get(dicFilePath));
+        System.out.println("Time elapsed 2 " + (System.currentTimeMillis() - startTime));
         Set<String> phrases = Collections.list(new StringTokenizer(dictContent, ","))
-                .parallelStream()
+                .stream()
                 .map(s -> ((String)s).trim())
-                .collect(toCollection(ConcurrentHashMap::newKeySet));
+                .collect(toCollection(() -> new HashSet<>(523_001)));
+        System.out.println("Time elapsed 3 " + (System.currentTimeMillis() - startTime));
 
         //统计词典中词组最多包含几个单词
         int maxWordsLen = phrases.parallelStream()
                 .map(s -> new StringTokenizer(s, " ").countTokens())
                 .reduce(Integer::max).orElse(0);
-
-        //读取RFQ文件，分割成句子
-        String rfqContent = new String(Files.readAllBytes(Paths.get(rfqFilePath)));
-        List<Object> sentences = Collections.list(new StringTokenizer(rfqContent, ","));
+        System.out.println("Time elapsed 4 " + (System.currentTimeMillis() - startTime));
 
         //对RFQ文件中的每个句子，统计词典中词组出现的次数
         Map<String, AtomicInteger> resultMap = new ConcurrentHashMap<>();
-        sentences.parallelStream()
+        while (sentences.get() == null) { Thread.yield(); }
+        System.out.println("Time elapsed 5 " + (System.currentTimeMillis() - startTime));
+
+        sentences.get().parallelStream()
                 .map(s -> ((String)s).trim().toLowerCase())
                 .map(sentence -> Collections.list(new StringTokenizer(sentence, " ")))
                 .forEach(words -> IntStream.range(0, words.size()).forEach(start -> {
@@ -52,12 +70,14 @@ public class RFQWords implements IRFQAnalyse {
                         }
                     }
                 }));
-
+        System.out.println("Time elapsed 6 " + (System.currentTimeMillis() - startTime));
         //写结果
-        String resultStr = resultMap.entrySet().parallelStream()
-                .map(e -> e.getKey() + "," + e.getValue())
-                .collect(joining(System.lineSeparator()));
-        Files.writeString(Paths.get(resultCSVFilePath), resultStr);
+        Stream<CharSequence> resultStr = resultMap.entrySet().stream()
+                .map(e -> e.getKey() + "," + e.getValue() + System.lineSeparator());
+        System.out.println("Time elapsed 7 " + (System.currentTimeMillis() - startTime));
+
+        Files.write(Paths.get(resultCSVFilePath), resultStr::iterator);
+        System.out.println("Time elapsed 8 " + (System.currentTimeMillis() - startTime));
     }
 
     public static void main(String[] args) throws IOException {
