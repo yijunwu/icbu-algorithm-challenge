@@ -68,6 +68,7 @@ public class RFQWords implements IRFQAnalyse {
     }
 
     public static void main(String[] args) throws IOException {
+        long beforeUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
         IRFQAnalyse rfqAnalyse = new RFQWords();
         String dicFilePath = "D:\\Work\\Dictionary_100M.txt";
         String rfqFilePath = "D:\\Work\\RFQInput_100M.txt";
@@ -76,5 +77,10 @@ public class RFQWords implements IRFQAnalyse {
         long start = System.currentTimeMillis();
         rfqAnalyse.doJob(rfqFilePath, dicFilePath, outputFilePath);
         System.out.println("Time elapsed: " + (System.currentTimeMillis() - start));
+
+        long afterUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+        long actualMemUsed=afterUsedMem-beforeUsedMem;
+
+        System.out.println("Memory used: " + (actualMemUsed));
     }
 }
