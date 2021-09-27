@@ -24,15 +24,15 @@ public class RFQWords implements IRFQAnalyse {
         //读取RFQ文件，分割成句子
         AtomicReference<List<Object>> sentences = new AtomicReference<>(null);
         new Thread(() -> {
-            try { String rfqContent = Files.readString(Paths.get(rfqFilePath));
-                sentences.set(Collections.list(new StringTokenizer(rfqContent, ",")));
+            try { byte[] rfqContent = Files.readAllBytes(Paths.get(rfqFilePath));
+                sentences.set(Collections.list(new ByteTokenizer(rfqContent, ",".getBytes())));
             } catch (IOException e) { sentences.set(emptyList()); }
         }).start();
 
         //构建词典hash map
-        String dictContent = Files.readString(Paths.get(dicFilePath));
-        Set<String> phrases = Collections.list(new StringTokenizer(dictContent, ","))
-                .stream().map(s -> ((String)s).trim())
+        byte[] dictContent = Files.readAllBytes(Paths.get(dicFilePath));
+        Set<String> phrases = Collections.list(new ByteTokenizer(dictContent, ",".getBytes()))
+                .stream().map(s -> (new String((byte[])s).trim()))
                 .collect(toCollection(() -> new HashSet<>(523_001)));
 
         //统计词典中词组最多包含几个单词
