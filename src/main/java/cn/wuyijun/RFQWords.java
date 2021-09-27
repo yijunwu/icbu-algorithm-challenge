@@ -24,20 +24,20 @@ public class RFQWords implements IRFQAnalyse {
         //读取RFQ文件，分割成句子
         AtomicReference<List<Object>> sentences = new AtomicReference<>(null);
         new Thread(() -> {
-            try { String rfqContent = Files.readString(Paths.get(rfqFilePath));
-                sentences.set(Collections.list(new StringTokenizer(rfqContent, ",")));
+            try { CustomString rfqContent = new CustomString(Files.readString(Paths.get(rfqFilePath)));
+                sentences.set(Collections.list(new CustomStringTokenizer(rfqContent, ",")));
             } catch (IOException e) { sentences.set(emptyList()); }
         }).start();
 
         //构建词典hash map
-        String dictContent = Files.readString(Paths.get(dicFilePath));
-        Set<String> phrases = Collections.list(new StringTokenizer(dictContent, ","))
-                .stream().map(s -> ((String)s).trim())
+        CustomString dictContent = new CustomString(Files.readString(Paths.get(dicFilePath)));
+        Set<CustomString> phrases = Collections.list(new CustomStringTokenizer(dictContent, ","))
+                .stream().map(s -> ((CustomString)s).trim())
                 .collect(toCollection(() -> new HashSet<>(523_001)));
 
         //统计词典中词组最多包含几个单词
         int maxWordsLen = phrases.parallelStream()
-                .map(s -> new StringTokenizer(s, " ").countTokens())
+                .map(s -> new CustomStringTokenizer(s, " ").countTokens())
                 .reduce(Integer::max).orElse(0);
 
         //对RFQ文件中的每个句子，统计词典中词组出现的次数
@@ -45,8 +45,8 @@ public class RFQWords implements IRFQAnalyse {
         while (sentences.get() == null) { Thread.yield(); }
 
         sentences.get().parallelStream()
-                .map(s -> ((String)s).trim().toLowerCase())
-                .map(sentence -> Collections.list(new StringTokenizer(sentence, " ")))
+                .map(s -> ((CustomString)s).trim().toLowerCase())
+                .map(sentence -> Collections.list(new CustomStringTokenizer(sentence, " ")))
                 .forEach(words -> IntStream.range(0, words.size()).forEach(start -> {
                     StringBuilder builder = new StringBuilder();
                     for (int pos = 0; pos < maxWordsLen && start + pos < words.size(); pos ++) {
