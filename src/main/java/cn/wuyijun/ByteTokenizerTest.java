@@ -5,6 +5,8 @@ package cn.wuyijun;
  * Copyright (C) 2008 Duy Do. All Rights Reserved.
  */
 
+import java.nio.ByteBuffer;
+
 /**
  * The class description here.
  *
@@ -29,17 +31,17 @@ public class ByteTokenizerTest {
         System.out.println("Byte array to parse: " + getHexDump(bytes));
 
         // Create an instance of ByteTokenizer
-        final ByteTokenizer tokenizer = new ByteTokenizer(bytes, delimiters);
+        final ByteTokenizer tokenizer = new ByteTokenizer(bytes, (byte)0x80);
 
         // Count tokens
         final int tonkenNums = tokenizer.countTokens();
         System.out.println("Token numbers: " + tonkenNums);
 
         // Print all tokens
-        byte[] token;
+        ByteBuffer token;
         while(tokenizer.hasMoreTokens()) {
-            token = (byte[]) tokenizer.nextToken();
-            System.out.println("Byte token: " + getHexDump(token));
+            token = tokenizer.nextToken();
+            System.out.println("Byte token: " + getHexDump(token.array()));
         }
     }
 

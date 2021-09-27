@@ -4,6 +4,7 @@ package cn.wuyijun;
  * Copyright (C) 2008 Duy Do. All Rights Reserved.
  */
 
+import java.nio.ByteBuffer;
 import java.util.Enumeration;
 import java.util.NoSuchElementException;
 
@@ -21,29 +22,7 @@ public class ByteTokenizer implements Enumeration<Object> {
     private int maxPosition;
 
     private byte[] bytes;
-    private byte[] delimiters;
-
-    /**
-     * Constructs a bytes array tokenizer for the specified bytes. The bytes in
-     * the <code>delimiters</code> argument are the delimiters for separating
-     * tokens. Delimiter bytes themselves will not be treated as tokens.
-     * <p>
-     * Note that if <tt>delimiters</tt> is <tt>null</tt>, this constructor does
-     * not throw an exception. However, trying to invoke other methods on the
-     * resulting <tt>ByteTokenizer</tt> may result in a
-     * <tt>NullPointerException</tt>.
-     *
-     * @param bytes a bytes array to be parsed
-     * @param delimiters a bytes array delimiters
-     * @exception NullPointerException if bytes is <CODE>null</CODE>
-     */
-    public ByteTokenizer(byte[] bytes, byte[] delimiters) {
-        this.bytes = bytes;
-        this.delimiters = delimiters;
-        currentPosition = 0;
-        newPosition = -1;
-        maxPosition = bytes.length;
-    }
+    private byte delimiter;
 
     /**
      * Constructs a bytes array tokenizer for the specified bytes. The byte
@@ -60,7 +39,11 @@ public class ByteTokenizer implements Enumeration<Object> {
      * @exception NullPointerException if bytes is <CODE>null</CODE>
      */
     public ByteTokenizer(byte[] bytes, byte delimiter) {
-        this(bytes, new byte[] { delimiter });
+        this.bytes = bytes;
+        this.delimiter = delimiter;
+        currentPosition = 0;
+        newPosition = -1;
+        maxPosition = bytes.length;
     }
 
     /**
@@ -97,7 +80,7 @@ public class ByteTokenizer implements Enumeration<Object> {
      * @exception NoSuchElementException if there are no more tokens in this
      *                tokenizer's bytes array.
      */
-    public Object nextToken() {
+    public ByteBuffer nextToken() {
         currentPosition = (newPosition >= 0) ? newPosition
                 : skipDelimiters(currentPosition);
 
@@ -111,9 +94,7 @@ public class ByteTokenizer implements Enumeration<Object> {
         final int startPosition = currentPosition;
         currentPosition = scanToken(currentPosition);
         final int length = currentPosition - startPosition;
-        final byte[] token = new byte[length];
-        System.arraycopy(bytes, startPosition, token, 0, length);
-        return token;
+        return ByteBuffer.wrap(bytes, startPosition, length);
     }
 
     /**
@@ -160,15 +141,13 @@ public class ByteTokenizer implements Enumeration<Object> {
      * of the first non-delimiter byte at or after startPosition.
      */
     private int skipDelimiters(final int startPosition) {
-        if (delimiters == null) {
-            throw new NullPointerException("delimiters");
-        }
         int position = startPosition;
         while (position < maxPosition) {
             if (isDelimiter(position)) {
-                position += delimiters.length;
+                position += 1;
+            } else {
+                break;
             }
-            break;
         }
         return position;
     }
@@ -189,19 +168,7 @@ public class ByteTokenizer implements Enumeration<Object> {
     }
 
     private boolean isDelimiter(final int startPosition) {
-        int position = startPosition;
-        boolean isDelimiter = true;
-        while ((position < maxPosition) && isDelimiter) {
-            int nDelimiter = 0;
-            while (nDelimiter < delimiters.length) {
-                if (bytes[startPosition + nDelimiter] != delimiters[nDelimiter]) {
-                    isDelimiter = false;
-                    break;
-                }
-                nDelimiter++;
-            }
-            position++;
-        }
-        return isDelimiter;
+        return (bytes[startPosition] == delimiter);
     }
+
 }

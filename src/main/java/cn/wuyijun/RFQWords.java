@@ -1,6 +1,7 @@
 package cn.wuyijun;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -25,14 +26,14 @@ public class RFQWords implements IRFQAnalyse {
         AtomicReference<List<Object>> sentences = new AtomicReference<>(null);
         new Thread(() -> {
             try { byte[] rfqContent = Files.readAllBytes(Paths.get(rfqFilePath));
-                sentences.set(Collections.list(new ByteTokenizer(rfqContent, ",".getBytes())));
+                sentences.set(Collections.list(new ByteTokenizer(rfqContent, ",".getBytes()[0])));
             } catch (IOException e) { sentences.set(emptyList()); }
         }).start();
 
         //构建词典hash map
         byte[] dictContent = Files.readAllBytes(Paths.get(dicFilePath));
-        Set<String> phrases = Collections.list(new ByteTokenizer(dictContent, ",".getBytes()))
-                .stream().map(s -> (new String((byte[])s).trim()))
+        Set<String> phrases = Collections.list(new ByteTokenizer(dictContent, ",".getBytes()[0]))
+                .stream().map(s -> (new String(((ByteBuffer)s).array()).trim()))
                 .collect(toCollection(() -> new HashSet<>(523_001)));
 
         //统计词典中词组最多包含几个单词
@@ -45,7 +46,7 @@ public class RFQWords implements IRFQAnalyse {
         while (sentences.get() == null) { Thread.yield(); }
 
         sentences.get().parallelStream()
-                .map(s -> ((String)s).trim().toLowerCase())
+                .map(s -> new String(((ByteBuffer)s).array()).trim().toLowerCase())
                 .map(sentence -> Collections.list(new StringTokenizer(sentence, " ")))
                 .forEach(words -> IntStream.range(0, words.size()).forEach(start -> {
                     StringBuilder builder = new StringBuilder();
