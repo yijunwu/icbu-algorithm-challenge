@@ -18,7 +18,6 @@ import java.util.NoSuchElementException;
 public class ByteTokenizer implements Enumeration<Object> {
 
     private int currentPosition;
-    private int newPosition;
     private int maxPosition;
 
     private byte[] bytes;
@@ -42,7 +41,6 @@ public class ByteTokenizer implements Enumeration<Object> {
         this.bytes = bytes;
         this.delimiter = delimiter;
         currentPosition = 0;
-        newPosition = -1;
         maxPosition = bytes.length;
     }
 
@@ -55,7 +53,7 @@ public class ByteTokenizer implements Enumeration<Object> {
      *         otherwise.
      */
     public boolean hasMoreTokens() {
-        newPosition = skipDelimiters(currentPosition);
+        int newPosition = skipDelimiters(currentPosition);
         return (newPosition < maxPosition);
     }
 
@@ -81,11 +79,7 @@ public class ByteTokenizer implements Enumeration<Object> {
      *                tokenizer's bytes array.
      */
     public ByteBuffer nextToken() {
-        currentPosition = (newPosition >= 0) ? newPosition
-                : skipDelimiters(currentPosition);
-
-        // Reset
-        newPosition = -1;
+        currentPosition = skipDelimiters(currentPosition);
 
         if (currentPosition >= maxPosition) {
             throw new NoSuchElementException(
