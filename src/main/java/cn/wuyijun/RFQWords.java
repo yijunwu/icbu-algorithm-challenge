@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
@@ -33,7 +34,7 @@ public class RFQWords implements IRFQAnalyse {
         //构建词典hash map
         byte[] dictContent = Files.readAllBytes(Paths.get(dicFilePath));
         Set<String> phrases = Collections.list(new ByteTokenizer(dictContent, ",".getBytes()[0]))
-                .stream().map(s -> (new String(((ByteBuffer)s).array()).trim()))
+                .stream().map(s -> (US_ASCII.decode((ByteBuffer) s).toString().trim()))
                 .collect(toCollection(() -> new HashSet<>(523_001)));
 
         //统计词典中词组最多包含几个单词
@@ -46,7 +47,7 @@ public class RFQWords implements IRFQAnalyse {
         while (sentences.get() == null) { Thread.yield(); }
 
         sentences.get().parallelStream()
-                .map(s -> new String(((ByteBuffer)s).array()).trim().toLowerCase())
+                .map(s -> US_ASCII.decode((ByteBuffer) s).toString().trim().toLowerCase())
                 .map(sentence -> Collections.list(new StringTokenizer(sentence, " ")))
                 .forEach(words -> IntStream.range(0, words.size()).forEach(start -> {
                     StringBuilder builder = new StringBuilder();
