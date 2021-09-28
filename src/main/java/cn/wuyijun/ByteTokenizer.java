@@ -1,8 +1,4 @@
 package cn.wuyijun;
-/**
- * @(#)ByteTokenizer.java Sep 23, 2008
- * Copyright (C) 2008 Duy Do. All Rights Reserved.
- */
 
 import java.nio.ByteBuffer;
 import java.util.Enumeration;
@@ -18,10 +14,10 @@ import java.util.NoSuchElementException;
 public class ByteTokenizer implements Enumeration<Object> {
 
     private int currentPosition;
-    private int maxPosition;
+    private final int maxPosition;
 
-    private byte[] bytes;
-    private byte delimiter;
+    private final byte[] bytes;
+    private final byte delimiter;
 
     /**
      * Constructs a bytes array tokenizer for the specified bytes. The byte
