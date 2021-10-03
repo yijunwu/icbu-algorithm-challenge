@@ -12,55 +12,64 @@ import java.util.stream.IntStream;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Collections.emptyList;
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toCollection;
+import static java.util.stream.Collectors.*;
 
 /**
  * 算法思想：用最简单直接的方法实现（步骤见代码），确保正确性，易于理解。
  * 使用Stream API和函数式编程增强代码可读性，使用parallel stream进行多线程并行处理，代码简单。
  */
 public class RFQWords implements IRFQAnalyse {
+    byte commaAsByte = ",".getBytes()[0];
+    byte spaceAsByte = " ".getBytes()[0];
 
     @Override
     public void doJob(String rfqFilePath, String dicFilePath, String resultCSVFilePath) throws IOException {
         //读取RFQ文件，分割成句子
-        AtomicReference<List<Object>> sentences = new AtomicReference<>(null);
+        AtomicReference<List<List<String>>> sentences = new AtomicReference<>(null);
+
         new Thread(() -> {
             try { byte[] rfqContent = Files.readAllBytes(Paths.get(rfqFilePath));
-                sentences.set(Collections.list(new ByteTokenizer(rfqContent, ",".getBytes()[0])));
+                sentences.set(Collections.list(new ByteTwoLevelsTokenizer(rfqContent, commaAsByte, spaceAsByte))
+                        .stream().map(p -> ((List<ByteBuffer>) p).stream().map(w -> US_ASCII.decode(w).toString().trim()).collect(toList()))
+                        .collect(toList()));
+                //sentences.set(Collections.list(new ByteTwoLevelsTokenizer(rfqContent, commaAsByte, spaceAsByte)));
             } catch (IOException e) { sentences.set(emptyList()); }
         }).start();
 
+        while (sentences.get() == null) { Thread.yield(); }
         //构建词典hash map
         byte[] dictContent = Files.readAllBytes(Paths.get(dicFilePath));
-        Set<String> phrases = Collections.list(new ByteTokenizer(dictContent, ",".getBytes()[0]))
-                .stream().map(s -> (US_ASCII.decode((ByteBuffer) s).toString().trim()))
+        Set<List<String>> phrases = Collections.list(new ByteTwoLevelsTokenizer(dictContent, commaAsByte, spaceAsByte))
+                .stream().map(p -> ((List<ByteBuffer>) p).stream().map(w -> US_ASCII.decode(w).toString().trim()).collect(toList()))
                 .collect(toCollection(() -> new HashSet<>(523_001)));
 
         //统计词典中词组最多包含几个单词
         int maxWordsLen = phrases.parallelStream()
-                .map(s -> new StringTokenizer(s, " ").countTokens())
+                .map(List::size)
                 .reduce(Integer::max).orElse(0);
 
         //对RFQ文件中的每个句子，统计词典中词组出现的次数
-        Map<String, AtomicInteger> resultMap = new ConcurrentHashMap<>();
+        Map<List<String>, AtomicInteger> resultMap = new ConcurrentHashMap<>();
         while (sentences.get() == null) { Thread.yield(); }
 
-        sentences.get().parallelStream()
-                .map(s -> US_ASCII.decode((ByteBuffer) s).toString().trim().toLowerCase())
-                .map(sentence -> Collections.list(new StringTokenizer(sentence, " ")))
-                .forEach(words -> IntStream.range(0, words.size()).forEach(start -> {
-                    StringBuilder builder = new StringBuilder();
-                    for (int pos = 0; pos < maxWordsLen && start + pos < words.size(); pos ++) {
-                        builder.append(words.get(start + pos));
-                        String part = builder.toString();
-                        builder.append(" ");
+        List<String> part = new ArrayList<>(maxWordsLen);
+        for (int i = 0; i < sentences.get().size(); i ++) {
+            List<String> words = sentences.get().get(i);
+            if (i %1000 == 0) {
+                System.out.println(i + ": " + System.currentTimeMillis());
+            }
 
-                        if (phrases.contains(part)) {
-                            resultMap.computeIfAbsent(part, key -> new AtomicInteger(0)).incrementAndGet();
-                        }
+            IntStream.range(0, words.size()).forEach(start -> {
+                for (int pos = 0; pos < maxWordsLen && start + pos < words.size(); pos++) {
+                    part.add(words.get(start + pos));
+
+                    if (phrases.contains(part)) {
+                        resultMap.computeIfAbsent(part, key -> new AtomicInteger(0)).incrementAndGet();
                     }
-                }));
+                }
+                part.clear();
+            });
+        }
 
         //写结果
         String resultStr = resultMap.entrySet().stream()
@@ -72,9 +81,9 @@ public class RFQWords implements IRFQAnalyse {
     public static void main(String[] args) throws IOException {
         long beforeUsedMem=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
         IRFQAnalyse rfqAnalyse = new RFQWords();
-        String dicFilePath = "D:\\Work\\Dictionary_100M.txt";
-        String rfqFilePath = "D:\\Work\\RFQInput_100M.txt";
-        String outputFilePath = "D:\\Work\\RFQOutput.txt";
+        String dicFilePath = "C:\\Work\\Dictionary_100M.txt";
+        String rfqFilePath = "C:\\Work\\RFQInput_100M.txt";
+        String outputFilePath = "C:\\Work\\RFQOutput.txt";
 
         long start = System.currentTimeMillis();
         rfqAnalyse.doJob(rfqFilePath, dicFilePath, outputFilePath);
